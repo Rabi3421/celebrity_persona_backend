@@ -10,6 +10,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Base route to check if the API is running
+app.get('/', (req, res) => {
+  res.send('Server is running!');
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 
