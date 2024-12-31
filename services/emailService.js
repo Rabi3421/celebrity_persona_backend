@@ -19,7 +19,7 @@ exports.sendOTP = async (email) => {
   await transporter.sendMail({
     from: process.env.EMAIL_USER,
     to: email,
-    subject: 'Your OTP Code',
+    subject: 'Your OTP for Login',
     text: `Your OTP is ${otp}. It expires in 5 minutes.`,
   });
 
