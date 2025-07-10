@@ -1,38 +1,259 @@
+const ApiResponse = require('../utils/apiResponse');
 const Outfit = require('../models/Outfit');
+const Celebrity = require('../models/Celebrity');
 
-exports.getOutfits = async (req, res) => {
+// Get all outfits
+exports.getOutfits = async (req, res, next) => {
   try {
-    const data = await Outfit.find().populate('celebrity').sort({ createdAt: -1 });
-    res.status(200).json(data);
-  } catch (err) {
-    console.error('Error fetching outfits:', err);
-    res.status(500).json({ message: 'Server error while fetching outfits' });
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const outfits = await Outfit.find()
+      .populate('celebrity', 'name image slug')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await Outfit.countDocuments();
+
+    if (req.query.page) {
+      const pagination = { page, limit, total };
+      return ApiResponse.paginated(res, outfits, pagination, 'Outfits retrieved successfully');
+    } else {
+      return ApiResponse.success(res, outfits, 'Outfits retrieved successfully');
+    }
+  } catch (error) {
+    return ApiResponse.error(res, error.message, 500);
   }
 };
 
-exports.createOutfit = async (req, res) => {
+// Get single outfit
+exports.getOutfit = async (req, res, next) => {
   try {
-    const { title, affiliateLink, celebrity, tags, trending } = req.body;
-    const image = req.file ? req.file.path : '';
-    const newOutfit = new Outfit({ title, affiliateLink, celebrity, tags, image, trending });
-    await newOutfit.save();
-    res.status(201).json(newOutfit);
-  } catch (err) {
-    console.error('Error creating outfit:', err);
-    res.status(500).json({ message: 'Server error while creating outfit' });
+    const { id } = req.params;
+    let outfit;
+
+    // Check if the parameter is a valid MongoDB ObjectId
+    if (id.match(/^[0-9a-fA-F]{24}$/)) {
+      outfit = await Outfit.findById(id).populate('celebrity', 'name image slug');
+    } else {
+      // Search by slug if it exists in your Outfit model
+      outfit = await Outfit.findOne({ slug: id }).populate('celebrity', 'name image slug');
+    }
+
+    if (!outfit) {
+      return ApiResponse.error(res, 'Outfit not found', 404);
+    }
+
+    return ApiResponse.success(res, outfit, 'Outfit retrieved successfully');
+  } catch (error) {
+    return ApiResponse.error(res, error.message, 500);
   }
 };
 
-exports.filterOutfits = async (req, res) => {
+// Create outfit
+exports.createOutfit = async (req, res, next) => {
   try {
-    const { trending, celebrityId } = req.body;
-    const query = {};
-    if (trending) query.trending = true;
-    if (celebrityId) query.celebrity = celebrityId;
-    const filtered = await Outfit.find(query).populate('celebrity').sort({ createdAt: -1 });
-    res.status(200).json(filtered);
-  } catch (err) {
-    console.error('Error filtering outfits:', err);
-    res.status(500).json({ message: 'Server error while filtering outfits' });
+    const outfitData = { ...req.body };
+
+    if (req.file) {
+      outfitData.image = req.file.filename;
+    }
+
+    // Verify celebrity exists
+    if (outfitData.celebrity) {
+      const celebrity = await Celebrity.findById(outfitData.celebrity);
+      if (!celebrity) {
+        return ApiResponse.error(res, 'Celebrity not found', 400);
+      }
+    }
+
+    const outfit = await Outfit.create(outfitData);
+    const populatedOutfit = await Outfit.findById(outfit._id).populate('celebrity', 'name image slug');
+
+    return ApiResponse.success(res, populatedOutfit, 'Outfit created successfully', 201);
+  } catch (error) {
+    return ApiResponse.error(res, error.message, 400);
+  }
+};
+
+// Update outfit
+exports.updateOutfit = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      return ApiResponse.error(res, 'Invalid outfit ID format', 400);
+    }
+
+    const outfit = await Outfit.findById(id);
+
+    if (!outfit) {
+      return ApiResponse.error(res, 'Outfit not found', 404);
+    }
+
+    const updateData = { ...req.body };
+
+    if (req.file) {
+      updateData.image = req.file.filename;
+    }
+
+    // Verify celebrity exists if updating celebrity
+    if (updateData.celebrity) {
+      const celebrity = await Celebrity.findById(updateData.celebrity);
+      if (!celebrity) {
+        return ApiResponse.error(res, 'Celebrity not found', 400);
+      }
+    }
+
+    const updatedOutfit = await Outfit.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    ).populate('celebrity', 'name image slug');
+
+    return ApiResponse.success(res, updatedOutfit, 'Outfit updated successfully');
+  } catch (error) {
+    return ApiResponse.error(res, error.message, 400);
+  }
+};
+
+// Delete outfit
+exports.deleteOutfit = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      return ApiResponse.error(res, 'Invalid outfit ID format', 400);
+    }
+
+    const outfit = await Outfit.findById(id);
+
+    if (!outfit) {
+      return ApiResponse.error(res, 'Outfit not found', 404);
+    }
+
+    await Outfit.findByIdAndDelete(id);
+    return ApiResponse.success(res, null, 'Outfit deleted successfully');
+  } catch (error) {
+    return ApiResponse.error(res, error.message, 500);
+  }
+};
+
+// Filter outfits
+exports.filterOutfits = async (req, res, next) => {
+  try {
+    const { celebrity, category, priceRange, tags, trending } = req.body;
+    let query = {};
+
+    if (celebrity) query.celebrity = celebrity;
+    if (category) query.category = category;
+    if (trending !== undefined) query.trending = trending;
+    if (tags && tags.length > 0) query.tags = { $in: tags };
+
+    if (priceRange) {
+      query.price = {
+        $gte: priceRange.min || 0,
+        $lte: priceRange.max || 999999
+      };
+    }
+
+    const page = parseInt(req.body.page) || 1;
+    const limit = parseInt(req.body.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const outfits = await Outfit.find(query)
+      .populate('celebrity', 'name image slug')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await Outfit.countDocuments(query);
+
+    if (req.body.page) {
+      const pagination = { page, limit, total };
+      return ApiResponse.paginated(res, outfits, pagination, 'Filtered outfits retrieved successfully');
+    } else {
+      return ApiResponse.success(res, outfits, 'Filtered outfits retrieved successfully');
+    }
+  } catch (error) {
+    return ApiResponse.error(res, error.message, 500);
+  }
+};
+
+// Get trending outfits
+exports.getTrendingOutfits = async (req, res, next) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+
+    const outfits = await Outfit.find({ trending: true })
+      .populate('celebrity', 'name image slug')
+      .sort({ views: -1, createdAt: -1 })
+      .limit(limit);
+
+    return ApiResponse.success(res, outfits, 'Trending outfits retrieved successfully');
+  } catch (error) {
+    return ApiResponse.error(res, error.message, 500);
+  }
+};
+
+// Search outfits
+exports.searchOutfits = async (req, res, next) => {
+  try {
+    const { name, description, celebrity } = req.query;
+    let query = {};
+
+    if (name) {
+      query.name = { $regex: name, $options: 'i' };
+    }
+    if (description) {
+      query.description = { $regex: description, $options: 'i' };
+    }
+    if (celebrity) {
+      query.celebrity = celebrity;
+    }
+
+    const outfits = await Outfit.find(query)
+      .populate('celebrity', 'name image slug')
+      .sort({ createdAt: -1 });
+
+    return ApiResponse.success(res, outfits, 'Search results retrieved successfully');
+  } catch (error) {
+    return ApiResponse.error(res, error.message, 500);
+  }
+};
+
+// Get outfit by celebrity
+exports.getOutfitsByCelebrity = async (req, res, next) => {
+  try {
+    const { celebrityId } = req.params;
+
+    // Verify celebrity exists
+    const celebrity = await Celebrity.findById(celebrityId);
+    if (!celebrity) {
+      return ApiResponse.error(res, 'Celebrity not found', 404);
+    }
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const outfits = await Outfit.find({ celebrity: celebrityId })
+      .populate('celebrity', 'name image slug')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await Outfit.countDocuments({ celebrity: celebrityId });
+
+    if (req.query.page) {
+      const pagination = { page, limit, total };
+      return ApiResponse.paginated(res, outfits, pagination, `${celebrity.name}'s outfits retrieved successfully`);
+    } else {
+      return ApiResponse.success(res, outfits, `${celebrity.name}'s outfits retrieved successfully`);
+    }
+  } catch (error) {
+    return ApiResponse.error(res, error.message, 500);
   }
 };
