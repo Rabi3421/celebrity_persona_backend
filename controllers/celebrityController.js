@@ -70,6 +70,7 @@ exports.createCelebrity = async (req, res, next) => {
         celebrityData.socialMedia = JSON.parse(celebrityData.socialMedia);
       } catch (e) {
         console.log('Error parsing socialMedia:', e);
+        // Keep original string if parsing fails
       }
     }
 
@@ -78,34 +79,11 @@ exports.createCelebrity = async (req, res, next) => {
         celebrityData.signature = JSON.parse(celebrityData.signature);
       } catch (e) {
         console.log('Error parsing signature:', e);
+        // Keep original string if parsing fails
       }
     }
 
-    // Clean up empty strings in nested objects
-    if (celebrityData.socialMedia) {
-      Object.keys(celebrityData.socialMedia).forEach(key => {
-        if (celebrityData.socialMedia[key] === '') {
-          delete celebrityData.socialMedia[key];
-        }
-      });
-    }
-
-    if (celebrityData.signature) {
-      Object.keys(celebrityData.signature).forEach(key => {
-        if (celebrityData.signature[key] === '') {
-          delete celebrityData.signature[key];
-        }
-      });
-    }
-
-    // Clean up empty string fields
-    Object.keys(celebrityData).forEach(key => {
-      if (celebrityData[key] === '') {
-        delete celebrityData[key];
-      }
-    });
-
-    // Auto-generate slug if not provided
+    // Auto-generate slug if not provided or empty
     if (!celebrityData.slug && celebrityData.name) {
       celebrityData.slug = celebrityData.name
         .toLowerCase()
@@ -115,17 +93,28 @@ exports.createCelebrity = async (req, res, next) => {
         .trim('-'); // Remove leading/trailing hyphens
     }
 
-    // Validate required fields
-    if (!celebrityData.name) {
+    // Only validate absolutely required fields
+    if (!celebrityData.name || celebrityData.name.trim() === '') {
       return ApiResponse.error(res, 'Name is required', 400);
     }
 
-    if (!celebrityData.slug) {
+    if (!celebrityData.slug || celebrityData.slug.trim() === '') {
       return ApiResponse.error(res, 'Slug is required', 400);
+    }
+
+    // Handle birthdate conversion if provided
+    if (celebrityData.birthdate && celebrityData.birthdate !== '') {
+      try {
+        celebrityData.birthdate = new Date(celebrityData.birthdate);
+      } catch (e) {
+        console.log('Error parsing birthdate:', e);
+        // Keep original value if parsing fails
+      }
     }
 
     console.log('Processed celebrityData:', celebrityData); // Debug log
 
+    // Store everything as received from frontend
     const celebrity = await Celebrity.create(celebrityData);
 
     return ApiResponse.success(res, celebrity, 'Celebrity created successfully', 201);
