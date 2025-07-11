@@ -54,15 +54,96 @@ exports.getCelebrity = async (req, res, next) => {
 // Create celebrity
 exports.createCelebrity = async (req, res, next) => {
   try {
+    console.log('Received body:', req.body); // Debug log
+    console.log('Received file:', req.file); // Debug log
+
     const celebrityData = { ...req.body };
 
+    // Handle image upload
     if (req.file) {
       celebrityData.image = req.file.filename;
     }
 
+    // Parse nested objects if they come as strings (common with form-data)
+    if (typeof celebrityData.socialMedia === 'string') {
+      try {
+        celebrityData.socialMedia = JSON.parse(celebrityData.socialMedia);
+      } catch (e) {
+        console.log('Error parsing socialMedia:', e);
+      }
+    }
+
+    if (typeof celebrityData.signature === 'string') {
+      try {
+        celebrityData.signature = JSON.parse(celebrityData.signature);
+      } catch (e) {
+        console.log('Error parsing signature:', e);
+      }
+    }
+
+    // Clean up empty strings in nested objects
+    if (celebrityData.socialMedia) {
+      Object.keys(celebrityData.socialMedia).forEach(key => {
+        if (celebrityData.socialMedia[key] === '') {
+          delete celebrityData.socialMedia[key];
+        }
+      });
+    }
+
+    if (celebrityData.signature) {
+      Object.keys(celebrityData.signature).forEach(key => {
+        if (celebrityData.signature[key] === '') {
+          delete celebrityData.signature[key];
+        }
+      });
+    }
+
+    // Clean up empty string fields
+    Object.keys(celebrityData).forEach(key => {
+      if (celebrityData[key] === '') {
+        delete celebrityData[key];
+      }
+    });
+
+    // Auto-generate slug if not provided
+    if (!celebrityData.slug && celebrityData.name) {
+      celebrityData.slug = celebrityData.name
+        .toLowerCase()
+        .replace(/[^a-z0-9 -]/g, '') // Remove special characters
+        .replace(/\s+/g, '-') // Replace spaces with hyphens
+        .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+        .trim('-'); // Remove leading/trailing hyphens
+    }
+
+    // Validate required fields
+    if (!celebrityData.name) {
+      return ApiResponse.error(res, 'Name is required', 400);
+    }
+
+    if (!celebrityData.slug) {
+      return ApiResponse.error(res, 'Slug is required', 400);
+    }
+
+    console.log('Processed celebrityData:', celebrityData); // Debug log
+
     const celebrity = await Celebrity.create(celebrityData);
+
     return ApiResponse.success(res, celebrity, 'Celebrity created successfully', 201);
   } catch (error) {
+    console.error('Create celebrity error:', error); // Debug log
+
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => err.message);
+      return ApiResponse.error(res, `Validation failed: ${errors.join(', ')}`, 400);
+    }
+
+    // Handle duplicate key error (like duplicate slug)
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      return ApiResponse.error(res, `${field} already exists`, 409);
+    }
+
     return ApiResponse.error(res, error.message, 400);
   }
 };

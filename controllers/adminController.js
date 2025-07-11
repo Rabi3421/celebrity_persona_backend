@@ -30,17 +30,17 @@ exports.login = async (req, res, next) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { 
-        id: admin._id, 
-        email: admin.email, 
-        role: admin.role 
+      {
+        id: admin._id,
+        email: admin.email,
+        role: admin.role
       },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
 
     // Update last login
-    await Admin.findByIdAndUpdate(admin._id, { 
+    await Admin.findByIdAndUpdate(admin._id, {
       lastLogin: new Date(),
       $inc: { loginCount: 1 }
     });
@@ -70,6 +70,15 @@ exports.createAdmin = async (req, res, next) => {
       return ApiResponse.error(res, 'Admin with this email already exists', 400);
     }
 
+    // Check if this is the first admin (no authentication required for first admin)
+    const adminCount = await Admin.countDocuments();
+    const isFirstAdmin = adminCount === 0;
+
+    // If not first admin, require authentication
+    if (!isFirstAdmin && !req.admin) {
+      return ApiResponse.error(res, 'Authentication required', 401);
+    }
+
     // Hash password
     const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
@@ -79,14 +88,14 @@ exports.createAdmin = async (req, res, next) => {
       name,
       email,
       password: hashedPassword,
-      role: role || 'admin',
-      createdBy: req.admin?.id
+      role: role || (isFirstAdmin ? 'super_admin' : 'admin'),
+      createdBy: req.admin?.id || null
     });
 
     // Remove password from response
     admin.password = undefined;
 
-    return ApiResponse.success(res, admin, 'Admin created successfully', 201);
+    return ApiResponse.success(res, admin, `${isFirstAdmin ? 'First admin' : 'Admin'} created successfully`, 201);
 
   } catch (error) {
     return ApiResponse.error(res, error.message, 400);
@@ -97,7 +106,7 @@ exports.createAdmin = async (req, res, next) => {
 exports.getProfile = async (req, res, next) => {
   try {
     const admin = await Admin.findById(req.admin.id);
-    
+
     if (!admin) {
       return ApiResponse.error(res, 'Admin not found', 404);
     }
@@ -113,7 +122,7 @@ exports.getProfile = async (req, res, next) => {
 exports.updateProfile = async (req, res, next) => {
   try {
     const { name, email } = req.body;
-    
+
     const admin = await Admin.findByIdAndUpdate(
       req.admin.id,
       { name, email },
@@ -153,7 +162,7 @@ exports.changePassword = async (req, res, next) => {
     const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
 
     // Update password
-    await Admin.findByIdAndUpdate(req.admin.id, { 
+    await Admin.findByIdAndUpdate(req.admin.id, {
       password: hashedNewPassword,
       passwordChangedAt: new Date()
     });
@@ -289,7 +298,7 @@ exports.moderateContent = async (req, res, next) => {
     const { type, id, action } = req.body; // type: 'blog' | 'outfit' | 'celebrity', action: 'approve' | 'reject' | 'feature'
 
     let result;
-    
+
     switch (type) {
       case 'blog':
         if (action === 'approve') {
@@ -362,9 +371,9 @@ exports.bulkOperations = async (req, res, next) => {
         return ApiResponse.error(res, 'Invalid operation type', 400);
     }
 
-    return ApiResponse.success(res, { 
+    return ApiResponse.success(res, {
       modifiedCount: result.modifiedCount || result.deletedCount,
-      operation: action 
+      operation: action
     }, `Bulk ${action} completed successfully`);
 
   } catch (error) {
@@ -377,7 +386,7 @@ exports.getSystemLogs = async (req, res, next) => {
   try {
     const fs = require('fs');
     const path = require('path');
-    
+
     const { type = 'combined', limit = 100 } = req.query;
     const logFile = path.join(__dirname, '..', 'logs', `${type}.log`);
 

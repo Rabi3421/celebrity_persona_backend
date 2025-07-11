@@ -21,8 +21,9 @@ const {
   getSystemLogs
 } = require('../controllers/adminController');
 
-// Public routes
+// Public routes (no authentication required)
 router.post('/login', validateAdminLogin, login);
+router.post('/users', validateAdminCreate, createAdmin);
 
 // Protected routes (require authentication)
 router.use(protect);
@@ -44,7 +45,6 @@ router.get('/logs', authorize('super_admin'), getSystemLogs);
 
 // User management (super admin only)
 router.get('/users', authorize('super_admin'), getAllAdmins);
-router.post('/users', authorize('super_admin'), validateAdminCreate, createAdmin);
 router.put('/users/:id/status', authorize('super_admin'), updateAdminStatus);
 router.delete('/users/:id', authorize('super_admin'), deleteAdmin);
 
