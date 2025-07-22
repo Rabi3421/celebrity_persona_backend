@@ -24,11 +24,22 @@ app.use(helmet({
   }
 }));
 
-// Rate limiting
+// Custom rate limiter for API key logic
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
+  max: (req, res) => {
+    // Unlimited for special API key, limit for others
+    const apiKey = req.headers['api_key'];
+    if (apiKey === 'c2134352b0ae669cff7496c79db4db96') {
+      return Number.MAX_SAFE_INTEGER; // Effectively unlimited
+    }
+    return 100; // Limit for others
+  },
+  message: 'Too many requests from this IP or API key, please try again later.',
+  keyGenerator: (req, res) => {
+    // Use API key as the rate limit key if present, else fallback to IP
+    return req.headers['api_key'] || req.ip;
+  }
 });
 app.use('/api/', limiter);
 
@@ -83,7 +94,7 @@ app.use('/api/inquiry', require('./routes/inquiryRoutes'));
 app.use('/api/newsletter', require('./routes/newsletterRoutes'));
 app.use('/sitemap.xml', require('./routes/sitemapRoutes'));
 app.use('/api', require('./routes/healthRoutes')); // Add this line
-
+app.use('/api/api-keys', require('./routes/apiKeyRoutes'));
 // Error handler middleware
 app.use(require('./middleware/errorHandler'));
 

@@ -54,9 +54,6 @@ exports.getCelebrity = async (req, res, next) => {
 // Create celebrity
 exports.createCelebrity = async (req, res, next) => {
   try {
-    console.log('Received body:', req.body); // Debug log
-    console.log('Received file:', req.file); // Debug log
-
     const celebrityData = { ...req.body };
 
     // Handle image upload
@@ -64,75 +61,64 @@ exports.createCelebrity = async (req, res, next) => {
       celebrityData.image = req.file.filename;
     }
 
-    // Parse nested objects if they come as strings (common with form-data)
-    if (typeof celebrityData.socialMedia === 'string') {
-      try {
-        celebrityData.socialMedia = JSON.parse(celebrityData.socialMedia);
-      } catch (e) {
-        console.log('Error parsing socialMedia:', e);
-        // Keep original string if parsing fails
-      }
-    }
+    // List of array/object fields from your frontend
+    const arrayFields = [
+      'facts', 'films', 'awards', 'matches', 'trophies', 'albums', 'books',
+      'positions', 'achievements', 'events', 'medals', 'sections'
+    ];
 
-    if (typeof celebrityData.signature === 'string') {
-      try {
-        celebrityData.signature = JSON.parse(celebrityData.signature);
-      } catch (e) {
-        console.log('Error parsing signature:', e);
-        // Keep original string if parsing fails
+    arrayFields.forEach(field => {
+      if (typeof celebrityData[field] === 'string') {
+        try {
+          celebrityData[field] = JSON.parse(celebrityData[field]);
+        } catch (e) {
+          // If parsing fails, keep as string
+        }
       }
-    }
+    });
 
     // Auto-generate slug if not provided or empty
     if (!celebrityData.slug && celebrityData.name) {
       celebrityData.slug = celebrityData.name
         .toLowerCase()
-        .replace(/[^a-z0-9 -]/g, '') // Remove special characters
-        .replace(/\s+/g, '-') // Replace spaces with hyphens
-        .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
-        .trim('-'); // Remove leading/trailing hyphens
+        .replace(/[^a-z0-9 -]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '');
     }
 
-    // Only validate absolutely required fields
+    // Validate required fields
     if (!celebrityData.name || celebrityData.name.trim() === '') {
       return ApiResponse.error(res, 'Name is required', 400);
     }
-
     if (!celebrityData.slug || celebrityData.slug.trim() === '') {
       return ApiResponse.error(res, 'Slug is required', 400);
     }
 
-    // Handle birthdate conversion if provided
-    if (celebrityData.birthdate && celebrityData.birthdate !== '') {
+    // Handle birthDate conversion if provided
+    if (celebrityData.birthDate && celebrityData.birthDate !== '') {
       try {
-        celebrityData.birthdate = new Date(celebrityData.birthdate);
+        celebrityData.birthDate = new Date(celebrityData.birthDate);
       } catch (e) {
-        console.log('Error parsing birthdate:', e);
         // Keep original value if parsing fails
       }
     }
-
-    console.log('Processed celebrityData:', celebrityData); // Debug log
 
     // Store everything as received from frontend
     const celebrity = await Celebrity.create(celebrityData);
 
     return ApiResponse.success(res, celebrity, 'Celebrity created successfully', 201);
   } catch (error) {
-    console.error('Create celebrity error:', error); // Debug log
+    console.error('Create celebrity error:', error);
 
-    // Handle validation errors
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors).map(err => err.message);
       return ApiResponse.error(res, `Validation failed: ${errors.join(', ')}`, 400);
     }
-
-    // Handle duplicate key error (like duplicate slug)
     if (error.code === 11000) {
       const field = Object.keys(error.keyPattern)[0];
       return ApiResponse.error(res, `${field} already exists`, 409);
     }
-
     return ApiResponse.error(res, error.message, 400);
   }
 };
@@ -155,8 +141,44 @@ exports.updateCelebrity = async (req, res, next) => {
 
     const updateData = { ...req.body };
 
+    // Handle image upload
     if (req.file) {
       updateData.image = req.file.filename;
+    }
+
+    // List of array/object fields from your frontend
+    const arrayFields = [
+      'facts', 'films', 'awards', 'matches', 'trophies', 'albums', 'books',
+      'positions', 'achievements', 'events', 'medals', 'sections'
+    ];
+
+    arrayFields.forEach(field => {
+      if (typeof updateData[field] === 'string') {
+        try {
+          updateData[field] = JSON.parse(updateData[field]);
+        } catch (e) {
+          // If parsing fails, keep as string
+        }
+      }
+    });
+
+    // Handle birthDate conversion if provided
+    if (updateData.birthDate && updateData.birthDate !== '') {
+      try {
+        updateData.birthDate = new Date(updateData.birthDate);
+      } catch (e) {
+        // Keep original value if parsing fails
+      }
+    }
+
+    // Auto-generate slug if not provided or empty
+    if (!updateData.slug && updateData.name) {
+      updateData.slug = updateData.name
+        .toLowerCase()
+        .replace(/[^a-z0-9 -]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '');
     }
 
     const updatedCelebrity = await Celebrity.findByIdAndUpdate(
@@ -251,6 +273,55 @@ exports.getTrendingCelebrities = async (req, res, next) => {
       .limit(10);
 
     return ApiResponse.success(res, celebrities, 'Trending celebrities retrieved successfully');
+  } catch (error) {
+    return ApiResponse.error(res, error.message, 500);
+  }
+};
+
+//Save draft celebrity
+exports.saveDraftCelebrity = async (req, res, next) => {
+  try {
+    const celebrityData = { ...req.body, isDraft: true };
+
+    // Handle image upload
+    if (req.file) {
+      celebrityData.image = req.file.filename;
+    }
+
+    // Parse arrays/objects
+    const arrayFields = [
+      'facts', 'films', 'awards', 'matches', 'trophies', 'albums', 'books',
+      'positions', 'achievements', 'events', 'medals', 'sections'
+    ];
+    arrayFields.forEach(field => {
+      if (typeof celebrityData[field] === 'string') {
+        try { celebrityData[field] = JSON.parse(celebrityData[field]); } catch {}
+      }
+    });
+
+    // Auto-generate slug if not provided
+    if (!celebrityData.slug && celebrityData.name) {
+      celebrityData.slug = celebrityData.name
+        .toLowerCase()
+        .replace(/[^a-z0-9 -]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    }
+
+    // Save as draft
+    const celebrity = await Celebrity.create(celebrityData);
+    return ApiResponse.success(res, celebrity, 'Draft saved successfully', 201);
+  } catch (error) {
+    return ApiResponse.error(res, error.message, 400);
+  }
+};
+
+// Get draft celebrities
+exports.getDraftCelebrities = async (req, res, next) => {
+  try {
+    const drafts = await Celebrity.find({ isDraft: true }).sort({ updatedAt: -1 });
+    return ApiResponse.success(res, drafts, 'Drafts retrieved successfully');
   } catch (error) {
     return ApiResponse.error(res, error.message, 500);
   }

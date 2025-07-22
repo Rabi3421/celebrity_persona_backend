@@ -1,63 +1,39 @@
-// In Celebrity.js model - make all fields optional except required ones
-const celebritySchema = new mongoose.Schema({
-  // Required fields
-  name: {
-    type: String,
-    required: [true, 'Celebrity name is required'],
-    trim: true
-  },
-  slug: {
-    type: String,
-    required: [true, 'Slug is required'],
-    unique: true,
-    lowercase: true,
-    trim: true
-  },
+const mongoose = require('mongoose');
 
-  // All other fields are optional and accept any value
-  image: { type: String },
-  bio: { type: String },
-  category: { type: String },
-  styleType: { type: String },
-  birthdate: { type: Date },
-  birthplace: { type: String },
+const SectionSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  content: { type: String, default: '' }
+}, { _id: false });
+
+const CelebritySchema = new mongoose.Schema({
+  name: { type: String, required: true, trim: true },
+  birthDate: { type: Date },
+  occupation: { type: String },
   nationality: { type: String },
-  height: { type: String },
-  education: { type: String },
-  careerHighlights: { type: String },
-  awards: { type: String },
-  personalLife: { type: String },
-  languages: { type: String },
-  styleEvolution: { type: String },
-  measurements: { type: String },
-  netWorth: { type: String },
-  zodiacSign: { type: String },
-  philanthropyWork: { type: String },
-  businessVentures: { type: String },
-  controversies: { type: String },
-  fanbaseNickname: { type: String },
-
-  // Nested objects - use Mixed type to accept any structure
-  socialMedia: {
-    type: mongoose.Schema.Types.Mixed,
-    default: {}
-  },
-  signature: {
-    type: mongoose.Schema.Types.Mixed,
-    default: {}
-  },
-
-  // System fields
+  infoboxImage: { type: String },
+  facts: [{ label: String, value: String }],
+  type: { type: String },
+  films: [{ title: String, year: String }],
+  awards: [{ name: String, year: String }],
+  matches: [{ type: String, count: String }],
+  trophies: [{ name: String, year: String }],
+  albums: [{ title: String, year: String }],
+  books: [{ title: String, year: String }],
+  positions: [{ title: String, year: String }],
+  achievements: [{ name: String, year: String }],
+  events: [{ name: String, year: String }],
+  medals: [{ type: String, year: String }],
+  metaTitle: { type: String },
+  metaDescription: { type: String },
+  slug: { type: String, required: true, unique: true, trim: true },
+  coverImage: { type: String },
+  sections: [SectionSchema],
+  image: { type: String }, // for uploaded image filename
   trending: { type: Boolean, default: false },
   trendingScore: { type: Number, default: 0 },
-  featured: { type: Boolean, default: false },
-  status: { type: String, enum: ['active', 'inactive', 'pending'], default: 'active' },
-  tags: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tag' }],
-  views: { type: Number, default: 0 },
-  clicks: { type: Number, default: 0 }
-}, {
-  timestamps: true,
-  strict: false, // This allows any additional fields not defined in schema
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
-});
+  category: { type: String },
+  profession: { type: String },
+  isDraft: { type: Boolean, default: false },
+}, { timestamps: true });
+
+module.exports = mongoose.model('Celebrity', CelebritySchema);
