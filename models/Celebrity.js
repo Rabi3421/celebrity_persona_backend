@@ -34,6 +34,7 @@ const CelebritySchema = new mongoose.Schema({
   category: { type: String },
   profession: { type: String },
   isDraft: { type: Boolean, default: false },
+  galleryImages: [{ type: String }],
 }, { timestamps: true });
 
 module.exports = mongoose.model('Celebrity', CelebritySchema);

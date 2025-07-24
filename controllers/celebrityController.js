@@ -64,7 +64,7 @@ exports.createCelebrity = async (req, res, next) => {
     // List of array/object fields from your frontend
     const arrayFields = [
       'facts', 'films', 'awards', 'matches', 'trophies', 'albums', 'books',
-      'positions', 'achievements', 'events', 'medals', 'sections'
+      'positions', 'achievements', 'events', 'medals', 'sections', 'galleryImages'
     ];
 
     arrayFields.forEach(field => {
@@ -295,7 +295,7 @@ exports.saveDraftCelebrity = async (req, res, next) => {
     ];
     arrayFields.forEach(field => {
       if (typeof celebrityData[field] === 'string') {
-        try { celebrityData[field] = JSON.parse(celebrityData[field]); } catch {}
+        try { celebrityData[field] = JSON.parse(celebrityData[field]); } catch { }
       }
     });
 
