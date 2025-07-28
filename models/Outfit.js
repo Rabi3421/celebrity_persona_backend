@@ -2,8 +2,18 @@ const mongoose = require('mongoose');
 
 const outfitSchema = new mongoose.Schema({
   title: String,
-  image: String,
+  description: String,
+  occasion: String,
+  brand: String,
+  price: Number,
   affiliateLink: String,
+  images: [String],
+  sections: [
+    {
+      title: String,
+      content: String
+    }
+  ],
   celebrity: { type: mongoose.Schema.Types.ObjectId, ref: 'Celebrity' },
   tags: [{
     type: mongoose.Schema.Types.ObjectId,

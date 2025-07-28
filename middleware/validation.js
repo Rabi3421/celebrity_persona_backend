@@ -10,8 +10,8 @@ const validateRequest = (req, res, next) => {
 };
 
 const validateOutfit = [
-  body('name').notEmpty().withMessage('Outfit name is required'),
-  body('description').optional().isLength({ max: 500 }),
+  body('title').notEmpty().withMessage('Outfit title is required'),
+  body('description').optional().isLength({ max: 5000000 }),
   body('price').isNumeric().withMessage('Price must be a number'),
   body('affiliateLink').isURL().withMessage('Must be a valid URL'),
   body('celebrity').isMongoId().withMessage('Valid celebrity ID required'),

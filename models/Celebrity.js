@@ -14,7 +14,7 @@ const CelebritySchema = new mongoose.Schema({
   facts: [{ label: String, value: String }],
   type: { type: String },
   films: [{ title: String, year: String }],
-  awards: [{ name: String, year: String }],
+  awards: [{name: String,year: String,movie: String,status: String,category: String}],
   matches: [{ type: String, count: String }],
   trophies: [{ name: String, year: String }],
   albums: [{ title: String, year: String }],

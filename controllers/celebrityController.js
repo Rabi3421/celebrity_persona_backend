@@ -140,7 +140,6 @@ exports.updateCelebrity = async (req, res, next) => {
     }
 
     const updateData = { ...req.body };
-
     // Handle image upload
     if (req.file) {
       updateData.image = req.file.filename;
@@ -149,9 +148,10 @@ exports.updateCelebrity = async (req, res, next) => {
     // List of array/object fields from your frontend
     const arrayFields = [
       'facts', 'films', 'awards', 'matches', 'trophies', 'albums', 'books',
-      'positions', 'achievements', 'events', 'medals', 'sections'
+      'positions', 'achievements', 'events', 'medals', 'sections', 'galleryImages'
     ];
 
+    // Parse JSON strings to arrays/objects if needed
     arrayFields.forEach(field => {
       if (typeof updateData[field] === 'string') {
         try {
@@ -159,6 +159,18 @@ exports.updateCelebrity = async (req, res, next) => {
         } catch (e) {
           // If parsing fails, keep as string
         }
+      }
+    });
+
+    // Remove empty objects from arrays
+    const isEmpty = obj => Object.values(obj).every(
+      v => v === '' || v === null || v === undefined
+    );
+    arrayFields.forEach(field => {
+      if (Array.isArray(updateData[field])) {
+        updateData[field] = updateData[field].filter(item =>
+          typeof item === 'object' && item !== null ? !isEmpty(item) : !!item
+        );
       }
     });
 
@@ -216,22 +228,38 @@ exports.deleteCelebrity = async (req, res, next) => {
 };
 
 // Search celebrities
+// exports.searchCelebrities = async (req, res, next) => {
+//   try {
+//     const { name, category, profession } = req.query;
+//     let query = {};
+
+//     if (name) {
+//       query.name = { $regex: name, $options: 'i' };
+//     }
+//     if (category) {
+//       query.category = category;
+//     }
+//     if (profession) {
+//       query.profession = profession;
+//     }
+
+//     const celebrities = await Celebrity.find(query).sort({ name: 1 });
+//     return ApiResponse.success(res, celebrities, 'Search results retrieved successfully');
+//   } catch (error) {
+//     return ApiResponse.error(res, error.message, 500);
+//   }
+// };
 exports.searchCelebrities = async (req, res, next) => {
   try {
-    const { name, category, profession } = req.query;
+    const { name } = req.query;
     let query = {};
-
     if (name) {
       query.name = { $regex: name, $options: 'i' };
     }
-    if (category) {
-      query.category = category;
-    }
-    if (profession) {
-      query.profession = profession;
-    }
-
-    const celebrities = await Celebrity.find(query).sort({ name: 1 });
+    const celebrities = await Celebrity.find(query)
+      .select('name _id image slug')
+      .limit(10)
+      .sort({ name: 1 });
     return ApiResponse.success(res, celebrities, 'Search results retrieved successfully');
   } catch (error) {
     return ApiResponse.error(res, error.message, 500);

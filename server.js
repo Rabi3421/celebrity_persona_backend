@@ -25,23 +25,23 @@ app.use(helmet({
 }));
 
 // Custom rate limiter for API key logic
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: (req, res) => {
-    // Unlimited for special API key, limit for others
-    const apiKey = req.headers['api_key'];
-    if (apiKey === 'c2134352b0ae669cff7496c79db4db96') {
-      return Number.MAX_SAFE_INTEGER; // Effectively unlimited
-    }
-    return 100; // Limit for others
-  },
-  message: 'Too many requests from this IP or API key, please try again later.',
-  keyGenerator: (req, res) => {
-    // Use API key as the rate limit key if present, else fallback to IP
-    return req.headers['api_key'] || req.ip;
-  }
-});
-app.use('/api/', limiter);
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: (req, res) => {
+//     // Unlimited for special API key, limit for others
+//     const apiKey = req.headers['api_key'];
+//     if (apiKey === 'c2134352b0ae669cff7496c79db4db96') {
+//       return Number.MAX_SAFE_INTEGER; // Effectively unlimited
+//     }
+//     return 100; // Limit for others
+//   },
+//   message: 'Too many requests from this IP or API key, please try again later.',
+//   keyGenerator: (req, res) => {
+//     // Use API key as the rate limit key if present, else fallback to IP
+//     return req.headers['api_key'] || req.ip;
+//   }
+// });
+// app.use('/api/', limiter);
 
 // Body parser
 app.use(express.json({ limit: '10mb' }));
@@ -65,11 +65,9 @@ app.use('/uploads', express.static('uploads'));
 const db = require('./config/db');
 db();
 
-const allowedOrigins = ['https://celebritypersona.com', 'http://localhost:8080']; // Add any other dev/staging URLs as needed
-// app.use(cors()); // Already allows all origins
+const allowedOrigins = ['https://celebritypersona.com', 'http://localhost:8080'];
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);

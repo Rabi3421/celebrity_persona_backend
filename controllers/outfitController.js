@@ -57,11 +57,51 @@ exports.createOutfit = async (req, res, next) => {
   try {
     const outfitData = { ...req.body };
 
-    if (req.file) {
-      outfitData.image = req.file.filename;
+    // Handle images: support both file uploads and image URLs
+    let images = [];
+    if (req.files && req.files.length > 0) {
+      images = req.files.map(file => file.filename);
+    } else if (outfitData.images) {
+      // Accepts array or single string
+      if (typeof outfitData.images === 'string') {
+        try {
+          images = JSON.parse(outfitData.images);
+        } catch {
+          images = [outfitData.images];
+        }
+      } else if (Array.isArray(outfitData.images)) {
+        images = outfitData.images;
+      }
+    }
+    outfitData.images = images;
+
+    // Parse tags if sent as a comma-separated string or JSON string
+    if (outfitData.tags) {
+      if (typeof outfitData.tags === 'string') {
+        try {
+          outfitData.tags = JSON.parse(outfitData.tags);
+        } catch {
+          outfitData.tags = outfitData.tags.split(',').map(t => t.trim()).filter(Boolean);
+        }
+      }
+    } else {
+      outfitData.tags = [];
     }
 
-    // Verify celebrity exists
+    // Parse sections if sent as JSON string
+    if (outfitData.sections) {
+      if (typeof outfitData.sections === 'string') {
+        try {
+          outfitData.sections = JSON.parse(outfitData.sections);
+        } catch {
+          outfitData.sections = [];
+        }
+      }
+    } else {
+      outfitData.sections = [];
+    }
+
+    // Celebrity is optional, but if provided, verify it exists
     if (outfitData.celebrity) {
       const celebrity = await Celebrity.findById(outfitData.celebrity);
       if (!celebrity) {
