@@ -8,10 +8,30 @@ exports.getCelebrities = async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const celebrities = await Celebrity.find()
-      .sort({ name: 1 })
-      .skip(skip)
-      .limit(limit);
+    // Use aggregation to get outfit count for each celebrity
+    const celebrities = await Celebrity.aggregate([
+      { $sort: { name: 1 } },
+      { $skip: skip },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: 'outfits', // collection name in MongoDB (should be plural and lowercase)
+          localField: '_id',
+          foreignField: 'celebrity',
+          as: 'outfits'
+        }
+      },
+      {
+        $addFields: {
+          outfitCount: { $size: '$outfits' }
+        }
+      },
+      {
+        $project: {
+          outfits: 0 // exclude the outfits array, keep only the count
+        }
+      }
+    ]);
 
     const total = await Celebrity.countDocuments();
 
@@ -228,27 +248,6 @@ exports.deleteCelebrity = async (req, res, next) => {
 };
 
 // Search celebrities
-// exports.searchCelebrities = async (req, res, next) => {
-//   try {
-//     const { name, category, profession } = req.query;
-//     let query = {};
-
-//     if (name) {
-//       query.name = { $regex: name, $options: 'i' };
-//     }
-//     if (category) {
-//       query.category = category;
-//     }
-//     if (profession) {
-//       query.profession = profession;
-//     }
-
-//     const celebrities = await Celebrity.find(query).sort({ name: 1 });
-//     return ApiResponse.success(res, celebrities, 'Search results retrieved successfully');
-//   } catch (error) {
-//     return ApiResponse.error(res, error.message, 500);
-//   }
-// };
 exports.searchCelebrities = async (req, res, next) => {
   try {
     const { name } = req.query;
