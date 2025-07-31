@@ -24,15 +24,28 @@ const outfitSchema = new mongoose.Schema({
     default: false,
     index: true
   },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  sections: [
+    {
+      title: String,
+      content: String
+    }
+  ]
 });
 
-// Add to Outfit.js after the schema definition and before module.exports
+// Virtual for outfitId
+outfitSchema.virtual('outfitId').get(function () {
+  return this._id.toString();
+});
+
+// Ensure virtuals are included in JSON and Object output
+outfitSchema.set('toJSON', { virtuals: true });
+outfitSchema.set('toObject', { virtuals: true });
+
+// Update tag usage count after save
 outfitSchema.post('save', async function () {
   if (this.isModified('tags')) {
     const Tag = require('./Tag');
-
-    // Update usage counts for all tags
     await Tag.updateMany(
       { _id: { $in: this.tags } },
       { $inc: { usageCount: 1 } }
@@ -40,10 +53,9 @@ outfitSchema.post('save', async function () {
   }
 });
 
+// Decrease tag usage count after delete
 outfitSchema.post('deleteOne', { document: true }, async function () {
   const Tag = require('./Tag');
-
-  // Decrease usage counts for all tags
   await Tag.updateMany(
     { _id: { $in: this.tags } },
     { $inc: { usageCount: -1 } }
