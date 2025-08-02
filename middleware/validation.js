@@ -33,7 +33,7 @@ const validateBlog = [
   body('title').notEmpty().withMessage('Blog title is required'),
   body('content').notEmpty().withMessage('Blog content is required'),
   body('excerpt').optional().isLength({ max: 300 }).withMessage('Excerpt must be less than 300 characters'),
-  body('category').notEmpty().withMessage('Blog category is required'),
+  body('categories').notEmpty().withMessage('Blog category is required'),
   body('tags').optional().isArray().withMessage('Tags must be an array'),
   body('published').optional().isBoolean().withMessage('Published must be boolean'),
   body('featured').optional().isBoolean().withMessage('Featured must be boolean'),
